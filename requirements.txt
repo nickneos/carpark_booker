@@ -1,0 +1,6 @@
+selenium==4.21.0
+pandas==2.2.2
+lxml==5.2.2
+html5lib==1.1
+beautifulsoup4==4.12.3
+https://github.com/nickneos/my_logger/releases/download/v0.1/my_logger-0.1-py3-none-any.whl
