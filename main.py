@@ -67,9 +67,9 @@ def main(url=URL):
 
     # book each wanted date
     for dte in wanted:
-        make_booking(driver, dte, floor="3")
+        make_booking(driver, dte, floor=3)
     for dte in wanted:
-        make_booking(driver, dte, floor="4")
+        make_booking(driver, dte, floor=4)
 
     # close the browser
     driver.close()
@@ -115,7 +115,7 @@ def get_desired_bookings(driver: webdriver.Firefox, days_wanted: list) -> list:
     return wanted
 
 
-def make_booking(driver: webdriver.Firefox, dte: str, floor: str="3"):
+def make_booking(driver: webdriver.Firefox, dte: str, floor: int=3):
 
     # select date
     date_selector = Select(driver.find_element(By.CSS_SELECTOR, "select#startDate"))
@@ -132,6 +132,7 @@ def make_booking(driver: webdriver.Firefox, dte: str, floor: str="3"):
         PM.click()
 
     # select floor
+    floor = str(floor)
     floor_selector = Select(driver.find_element(By.CSS_SELECTOR, "select#floorNum"))
     floor_selector.select_by_value(floor)
 
@@ -144,6 +145,7 @@ def make_booking(driver: webdriver.Firefox, dte: str, floor: str="3"):
     cells = results.find_elements(By.CSS_SELECTOR, "td")
     buttons = results.find_elements(By.CSS_SELECTOR, "input[value='Book']")
 
+    # bookings available if a button is present
     if len(buttons) > 0:
         while True:
             # pick a random button (representing a car park spot)
@@ -178,6 +180,8 @@ def make_booking(driver: webdriver.Firefox, dte: str, floor: str="3"):
             # try again
             logger.warning(f"{dte} - issue booking {carpark_no}...trying again")
             make_booking(driver, dte)
+
+    # no bookings available
     else:
         logger.warning(f"{dte} - [L{floor}] {cells[0].text}")
         return False
