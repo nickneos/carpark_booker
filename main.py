@@ -87,7 +87,6 @@ def get_my_bookings(driver: webdriver.Firefox) -> list:
     
     # convert all car park bookings to list
     bks = df[df["Floor"].str.contains("Car Park")]["From"].to_list()
-
     return [datetime.strptime(b, "%d/%m/%Y %p") for b in bks]
 
 
@@ -95,6 +94,7 @@ def get_desired_bookings(driver: webdriver.Firefox, days_wanted: list) -> list:
 
     wanted = []
     my_bookings = get_my_bookings(driver)
+    exclusions = parse_exclusions()
 
     # wait for date selector
     wait = WebDriverWait(driver, 30)
@@ -109,6 +109,7 @@ def get_desired_bookings(driver: webdriver.Firefox, days_wanted: list) -> list:
             if (
                 day.lower() in option.lower()
                 and datetime.strptime(option, "%A %d %B %Y") not in my_bookings
+                and datetime.strptime(option, "%A %d %B %Y") not in exclusions
             ):
                 wanted.append(option)
 
@@ -141,7 +142,8 @@ def make_booking(driver: webdriver.Firefox, dte: str, floor: int=3):
 
     # get results
     wait = WebDriverWait(driver, 20)
-    results = wait.until(EC.visibility_of_element_located((By.CSS_SELECTOR, "table#tab_bookingsPanel_tabPanel_searchResults_deskSearchResultsGrid")))
+    css_selector = "table#tab_bookingsPanel_tabPanel_searchResults_deskSearchResultsGrid"
+    results = wait.until(EC.visibility_of_element_located((By.CSS_SELECTOR, css_selector)))
     cells = results.find_elements(By.CSS_SELECTOR, "td")
     buttons = results.find_elements(By.CSS_SELECTOR, "input[value='Book']")
 
@@ -201,6 +203,15 @@ def switch_frame(driver: webdriver.Firefox, frame: str):
         frame = driver.find_element(By.CSS_SELECTOR, "iframe#mainDisplayFrame")
         driver.switch_to.frame(frame)
         
+
+def parse_exclusions(filename="exclusions.txt"):
+    try:
+        with open(filename) as f:
+            excl = f.readlines()
+        return [datetime.strptime(x.strip(), "%Y-%m-%d") for x in excl]
+    except FileNotFoundError:
+        return []
+
 
 if __name__ == "__main__":
     main()
