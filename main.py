@@ -2,6 +2,7 @@ import logging
 import io
 import pandas as pd
 import random
+import time
 from datetime import datetime
 
 from selenium import webdriver
@@ -25,12 +26,6 @@ configure_logger(logger, log_file="carpark_booker.log")
 
 
 def main(url=URL):
-    """
-    Return a list of all the available bookings from the `url`
-
-    Args:
-    url (string): The url of the website listing the available bookings.
-    """
 
     # initialise webdriver
     options = Options()
@@ -63,7 +58,14 @@ def main(url=URL):
     switch_frame(driver, "main")
 
     # get wanted dates from available dates
-    wanted = get_desired_bookings(driver, DAYS_WANTED)
+    retry_attemps = 3
+    while True:
+        wanted = get_desired_bookings(driver, DAYS_WANTED)
+        if len(wanted) > 0 or retry_attemps < 1:
+            break
+        logger.warning("No wanted bookings found. Retrying in 5 seconds")
+        time.sleep(5)
+        retry_attemps -= 1
 
     # book each wanted date
     for dte in wanted:
@@ -76,6 +78,14 @@ def main(url=URL):
 
 
 def get_my_bookings(driver: webdriver.Firefox) -> list:
+    """Gets users existing bookings from condeco.
+
+    Args:
+        driver (webdriver.Firefox): Instance of selenium driver.
+
+    Returns:
+        list: list of carpark bookings
+    """    
 
     # wait for table of bookings
     css_selector = "table#tab_bookingsPanel_tabPanel_deskBookings_welcomeBookedDesksUser"
@@ -91,6 +101,15 @@ def get_my_bookings(driver: webdriver.Firefox) -> list:
 
 
 def get_desired_bookings(driver: webdriver.Firefox, days_wanted: list) -> list:
+    """Get a list of car park spots available for the given `days_wanted`.
+
+    Args:
+        driver (webdriver.Firefox): Instance of selenium driver.
+        days_wanted (list): List of days of week you want to make bookings for.
+
+    Returns:
+        list: list of car park spots
+    """    
 
     wanted = []
     my_bookings = get_my_bookings(driver)
@@ -116,7 +135,17 @@ def get_desired_bookings(driver: webdriver.Firefox, days_wanted: list) -> list:
     return wanted
 
 
-def make_booking(driver: webdriver.Firefox, dte: str, floor: int=3):
+def make_booking(driver: webdriver.Firefox, dte: str, floor: int=3) -> bool:
+    """Make a booking on the condeco website.
+
+    Args:
+        driver (webdriver.Firefox): Instance of selenium driver.
+        dte (str): The booking date.
+        floor (int, optional): Floor for booking. Defaults to 3.
+
+    Returns:
+        bool: True/False if booking was successful.
+    """
 
     # select date
     date_selector = Select(driver.find_element(By.CSS_SELECTOR, "select#startDate"))
@@ -190,6 +219,12 @@ def make_booking(driver: webdriver.Firefox, dte: str, floor: int=3):
 
 
 def switch_frame(driver: webdriver.Firefox, frame: str):
+    """Switch between frames on the website.
+
+    Args:
+        driver (webdriver.Firefox): Instance of selenium driver.
+        frame (str): Name of the frame to switch to.
+    """
 
     wait = WebDriverWait(driver, 20)
 
@@ -205,6 +240,14 @@ def switch_frame(driver: webdriver.Firefox, frame: str):
         
 
 def parse_exclusions(filename="exclusions.txt"):
+    """Parse the exclusions text file which contains dates to exclude from making bookings.
+
+    Args:
+        filename (str, optional): Path of the exclusions text file. Defaults to "exclusions.txt".
+
+    Returns:
+        list: Dates parsed from exclusions text file.
+    """
     try:
         with open(filename) as f:
             excl = f.readlines()
