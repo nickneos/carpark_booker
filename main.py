@@ -3,7 +3,7 @@ import io
 import pandas as pd
 import random
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from selenium import webdriver
 from selenium.webdriver.firefox.options import Options
@@ -19,6 +19,7 @@ from my_logger import configure_logger
 URL = "https://gww.condecosoftware.com"
 DAYS_WANTED = ["Wednesday", "Friday"]
 PROFILE_PATH = "/home/nickneos/.mozilla/firefox/kj2737ng.selenium"
+RETRY_MINUTES = 10
 
 # initialise logger
 logger = logging.getLogger(__name__)
@@ -58,19 +59,15 @@ def main(url=URL):
     switch_frame(driver, "main")
 
     # get wanted dates from available dates
-    retry_attemps = 3
-    while True:
-        wanted = get_desired_bookings(driver, DAYS_WANTED)
-        if len(wanted) > 0 or retry_attemps < 1:
-            break
-        logger.warning("No wanted bookings found. Retrying in 5 seconds")
-        time.sleep(5)
-        retry_attemps -= 1
+    wanted = get_desired_bookings(driver, DAYS_WANTED)  
+    logger.info(f"{wanted=}")  
 
     # book each wanted date
     for dte in wanted:
+        logging.info(f"searching for {dte} on floor 3")
         make_booking(driver, dte, floor=3)
     for dte in wanted:
+        logging.info(f"searching for {dte} on floor 4")
         make_booking(driver, dte, floor=4)
 
     # close the browser
@@ -124,13 +121,20 @@ def get_desired_bookings(driver: webdriver.Firefox, days_wanted: list) -> list:
     options = [d.text for d in date_selector.options]
 
     for option in options:
+        # date from website will look like "Friday 13 September 2024"
+        option_date = datetime.strptime(option, "%A %d %B %Y")
+
         for day in days_wanted:
             if (
                 day.lower() in option.lower()
-                and datetime.strptime(option, "%A %d %B %Y") not in my_bookings
-                and datetime.strptime(option, "%A %d %B %Y") not in exclusions
+                and option_date not in my_bookings
+                and option_date not in exclusions
             ):
-                wanted.append(option)
+                if option_date.date() == datetime.now().date():
+                    if datetime.now().hour < 9:
+                        wanted.append(option)
+                else:
+                    wanted.append(option)
 
     return wanted
 
@@ -190,7 +194,7 @@ def make_booking(driver: webdriver.Firefox, dte: str, floor: int=3) -> bool:
             carpark_no = tds[1].text
 
             # dont want handicap car parks
-            if "disability" in carpark_no.lower():
+            if is_disabled_carpark(carpark_no):
                 buttons.remove(btn)
                 if len(buttons) == 0:
                     logger.warning(f"{dte} - Only available car park is {carpark_no}")
@@ -237,7 +241,7 @@ def switch_frame(driver: webdriver.Firefox, frame: str):
         driver.switch_to.parent_frame()
         frame = driver.find_element(By.CSS_SELECTOR, "iframe#mainDisplayFrame")
         driver.switch_to.frame(frame)
-        
+
 
 def parse_exclusions(filename="exclusions.txt"):
     """Parse the exclusions text file which contains dates to exclude from making bookings.
@@ -254,7 +258,26 @@ def parse_exclusions(filename="exclusions.txt"):
         return [datetime.strptime(x.strip(), "%Y-%m-%d") for x in excl]
     except FileNotFoundError:
         return []
+    
+
+def is_disabled_carpark(carpark): 
+    if "disability" in carpark.lower():
+        return True
+    if "priority" in carpark.lower():
+        return True
+    return False
 
 
 if __name__ == "__main__":
-    main()
+    time_start = datetime.now()
+    logger.info("starting")
+
+    while True:
+        if time_start > datetime.now() - timedelta(minutes=RETRY_MINUTES):
+            main()
+            wait = 5
+            logger.warning(f"Retrying in {wait} seconds")
+            time.sleep(wait)
+        else:
+            logger.warning(f"RETRY_MINUTES ({RETRY_MINUTES}) expired")
+            break
