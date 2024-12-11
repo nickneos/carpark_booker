@@ -19,7 +19,8 @@ from my_logger import configure_logger
 URL = "https://gww.condecosoftware.com"
 DAYS_WANTED = ["Wednesday", "Friday"]
 PROFILE_PATH = "/home/nickneos/.mozilla/firefox/kj2737ng.selenium"
-RETRY_MINUTES = 10
+TIMEOUT_MINUTES = 10
+TIMEOUT_SECONDS = 45
 
 # initialise logger
 logger = logging.getLogger(__name__)
@@ -35,43 +36,48 @@ def main(url=URL):
     options.add_argument(PROFILE_PATH)
     driver = webdriver.Firefox(options=options)
 
-    # open page
-    driver.get(url)
-    
-    # webdriverwait
-    wait = WebDriverWait(driver, 20)
+    try:
+        # open page
+        driver.get(url)
+        
+        # webdriverwait
+        wait = WebDriverWait(driver, 20)
 
-    # # click login button
-    # try:
-    #     wait.until(
-    #         EC.visibility_of_element_located((By.CSS_SELECTOR, "input#btnRedirectID"))
-    #     ).click()
-    # except TimeoutException:
-    #     pass
+        # # click login button
+        # try:
+        #     wait.until(
+        #         EC.visibility_of_element_located((By.CSS_SELECTOR, "input#btnRedirectID"))
+        #     ).click()
+        # except TimeoutException:
+        #     pass
 
-    # switch to navigation frame
-    switch_frame(driver, "navigation")
+        # switch to navigation frame
+        switch_frame(driver, "navigation")
 
-    # click on "personal spaces"
-    wait.until(EC.visibility_of_element_located((By.CSS_SELECTOR, "em.fa-light.fa-lamp-desk"))).click()
+        # click on "personal spaces"
+        wait.until(EC.visibility_of_element_located((By.CSS_SELECTOR, "em.fa-light.fa-lamp-desk"))).click()
 
-    # switch to main frame
-    switch_frame(driver, "main")
+        # switch to main frame
+        switch_frame(driver, "main")
 
-    # get wanted dates from available dates
-    wanted = get_desired_bookings(driver, DAYS_WANTED)  
-    logger.info(f"{wanted=}")  
+        # get wanted dates from available dates
+        wanted = get_desired_bookings(driver, DAYS_WANTED)  
+        logger.info(f"{wanted=}")  
 
-    # book each wanted date
-    for dte in wanted:
-        logging.info(f"searching for {dte} on floor 3")
-        make_booking(driver, dte, floor=3)
-    for dte in wanted:
-        logging.info(f"searching for {dte} on floor 4")
-        make_booking(driver, dte, floor=4)
+        # book each wanted date
+        for dte in wanted:
+            logger.info(f"searching for {dte} on floor 3")
+            make_booking(driver, dte, floor=3)
+        for dte in wanted:
+            logger.info(f"searching for {dte} on floor 4")
+            make_booking(driver, dte, floor=4)
 
-    # close the browser
-    driver.close()
+        # close the browser
+        driver.close()
+
+    except Exception as e:
+        driver.close()
+        logger.error(f"{type(e).__name__}: {e}")
 
 
 def get_my_bookings(driver: webdriver.Firefox) -> list:
@@ -273,11 +279,11 @@ if __name__ == "__main__":
     logger.info("starting")
 
     while True:
-        if time_start > datetime.now() - timedelta(minutes=RETRY_MINUTES):
+        if time_start > datetime.now() - timedelta(seconds=TIMEOUT_SECONDS):
             main()
             wait = 5
             logger.warning(f"Retrying in {wait} seconds")
             time.sleep(wait)
         else:
-            logger.warning(f"RETRY_MINUTES ({RETRY_MINUTES}) expired")
+            logger.warning(f"TIMEOUT_SECONDS ({TIMEOUT_SECONDS}) expired")
             break
