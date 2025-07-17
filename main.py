@@ -18,7 +18,7 @@ from my_logger import configure_logger
 # constants
 URL = "https://gww.condecosoftware.com"
 DAYS_WANTED = ["Wednesday", "Friday"]
-PROFILE_PATH = "/home/nickneos/.mozilla/firefox/kj2737ng.selenium"
+PROFILE_PATH = "/home/nickneos/.mozilla/firefox/uir269rm.selenium"
 TIMEOUT_MINUTES = 10
 TIMEOUT_SECONDS = 45
 
@@ -39,7 +39,7 @@ def main(url=URL):
     try:
         # open page
         driver.get(url)
-        
+
         # webdriverwait
         wait = WebDriverWait(driver, 20)
 
@@ -61,8 +61,8 @@ def main(url=URL):
         switch_frame(driver, "main")
 
         # get wanted dates from available dates
-        wanted = get_desired_bookings(driver, DAYS_WANTED)  
-        logger.info(f"{wanted=}")  
+        wanted = get_desired_bookings(driver, DAYS_WANTED)
+        logger.info(f"{wanted=}")
 
         # book each wanted date
         for dte in wanted:
@@ -88,7 +88,7 @@ def get_my_bookings(driver: webdriver.Firefox) -> list:
 
     Returns:
         list: list of carpark bookings
-    """    
+    """
 
     # wait for table of bookings
     css_selector = "table#tab_bookingsPanel_tabPanel_deskBookings_welcomeBookedDesksUser"
@@ -97,7 +97,7 @@ def get_my_bookings(driver: webdriver.Firefox) -> list:
 
     # first table in html to pandas df
     df = pd.read_html(io.StringIO(table.get_attribute("outerHTML")))[0]
-    
+
     # convert all car park bookings to list
     bks = df[df["Floor"].str.contains("Car Park")]["From"].to_list()
     return [datetime.strptime(b, "%d/%m/%Y %p") for b in bks]
@@ -112,7 +112,7 @@ def get_desired_bookings(driver: webdriver.Firefox, days_wanted: list) -> list:
 
     Returns:
         list: list of car park spots
-    """    
+    """
 
     wanted = []
     my_bookings = get_my_bookings(driver)
@@ -264,9 +264,9 @@ def parse_exclusions(filename="exclusions.txt"):
         return [datetime.strptime(x.strip(), "%Y-%m-%d") for x in excl]
     except FileNotFoundError:
         return []
-    
 
-def is_disabled_carpark(carpark): 
+
+def is_disabled_carpark(carpark):
     if "disability" in carpark.lower():
         return True
     if "priority" in carpark.lower():
