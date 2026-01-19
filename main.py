@@ -17,7 +17,6 @@ from my_logger import configure_logger
 
 # constants
 URL = "https://gww.condecosoftware.com"
-DAYS_WANTED = ["Wednesday", "Friday"]
 PROFILE_PATH = "/home/nickneos/.mozilla/firefox/uir269rm.selenium"
 TIMEOUT_MINUTES = 10
 TIMEOUT_SECONDS = 45
@@ -61,7 +60,7 @@ def main(url=URL):
         switch_frame(driver, "main")
 
         # get wanted dates from available dates
-        wanted = get_desired_bookings(driver, DAYS_WANTED)
+        wanted = get_desired_bookings(driver, "dates_wanted.txt")
         logger.info(f"{wanted=}")
 
         # book each wanted date
@@ -99,16 +98,20 @@ def get_my_bookings(driver: webdriver.Firefox) -> list:
     df = pd.read_html(io.StringIO(table.get_attribute("outerHTML")))[0]
 
     # convert all car park bookings to list
-    bks = df[df["Floor"].str.contains("Car Park")]["From"].to_list()
+    try:
+        bks = df[df["Floor"].str.contains("Car Park")]["From"].to_list()
+    except KeyError:
+        return []
+
     return [datetime.strptime(b, "%d/%m/%Y %p") for b in bks]
 
 
-def get_desired_bookings(driver: webdriver.Firefox, days_wanted: list) -> list:
+def get_desired_bookings(driver: webdriver.Firefox, dates_wanted_file: str) -> list:
     """Get a list of car park spots available for the given `days_wanted`.
 
     Args:
         driver (webdriver.Firefox): Instance of selenium driver.
-        days_wanted (list): List of days of week you want to make bookings for.
+        dates_wanted_file (str): File with list of dates wanting a booking for.
 
     Returns:
         list: list of car park spots
@@ -116,7 +119,7 @@ def get_desired_bookings(driver: webdriver.Firefox, days_wanted: list) -> list:
 
     wanted = []
     my_bookings = get_my_bookings(driver)
-    exclusions = parse_exclusions()
+    dates_desired = parse_dates_file(dates_wanted_file)
 
     # wait for date selector
     wait = WebDriverWait(driver, 30)
@@ -130,17 +133,14 @@ def get_desired_bookings(driver: webdriver.Firefox, days_wanted: list) -> list:
         # date from website will look like "Friday 13 September 2024"
         option_date = datetime.strptime(option, "%A %d %B %Y")
 
-        for day in days_wanted:
-            if (
-                day.lower() in option.lower()
-                and option_date not in my_bookings
-                and option_date not in exclusions
-            ):
-                if option_date.date() == datetime.now().date():
-                    if datetime.now().hour < 9:
-                        wanted.append(option)
-                else:
+        if option_date in dates_desired and option_date not in my_bookings:
+            if option_date.date() == datetime.now().date():
+                if datetime.now().hour < 9:
                     wanted.append(option)
+            else:
+                wanted.append(option)
+
+    # logger.info(f"{wanted=}")
 
     return wanted
 
@@ -249,7 +249,7 @@ def switch_frame(driver: webdriver.Firefox, frame: str):
         driver.switch_to.frame(frame)
 
 
-def parse_exclusions(filename="exclusions.txt"):
+def parse_dates_file(filename="exclusions.txt"):
     """Parse the exclusions text file which contains dates to exclude from making bookings.
 
     Args:
@@ -260,8 +260,8 @@ def parse_exclusions(filename="exclusions.txt"):
     """
     try:
         with open(filename) as f:
-            excl = f.readlines()
-        return [datetime.strptime(x.strip(), "%Y-%m-%d") for x in excl]
+            dates = f.readlines()
+        return [datetime.strptime(x.strip(), "%Y-%m-%d") for x in dates]
     except FileNotFoundError:
         return []
 
