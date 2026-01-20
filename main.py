@@ -3,7 +3,7 @@ import io
 import pandas as pd
 import random
 import time
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, time
 
 from selenium import webdriver
 from selenium.webdriver.firefox.options import Options
@@ -135,12 +135,10 @@ def get_desired_bookings(driver: webdriver.Firefox, dates_wanted_file: str) -> l
 
         if option_date in dates_desired and option_date not in my_bookings:
             if option_date.date() == datetime.now().date():
-                if datetime.now().hour < 9:
+                if datetime.now().time() < time(8, 30):
                     wanted.append(option)
             else:
                 wanted.append(option)
-
-    # logger.info(f"{wanted=}")
 
     return wanted
 
